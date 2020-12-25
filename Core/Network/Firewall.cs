@@ -9,9 +9,9 @@ namespace Core.Network
     {
         private const string Name = "[GTAO] Private Public Lobby";
 
-        private IFirewall _firewall;
+        private readonly IFirewall _firewall;
 
-        private Dictionary<Port, IRule> _rules = new();
+        private readonly Dictionary<Port, IRule> _rules = new();
 
         public Firewall()
         {
@@ -30,15 +30,12 @@ namespace Core.Network
                 var rule = CreatePortRule(port);
 
                 _rules.Add(port, rule);
-
                 _firewall.Rules.Add(rule);
             }
         }
 
-        private IRule CreatePortRule(in Port port)
-        {
-            return _firewall.CreatePortRule(FirewallProfiles.Public, Name, FirewallAction.Block, port.Number);
-        }
+        private IRule CreatePortRule(in Port port) =>
+            _firewall.CreatePortRule(FirewallProfiles.Public, Name, FirewallAction.Block, port.Number);
 
         public void Unblock(Port port)
         {
