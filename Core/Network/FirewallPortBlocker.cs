@@ -5,7 +5,7 @@ using WindowsFirewallHelper;
 
 namespace Core.Network
 {
-	public class Firewall
+	public class FirewallPortBlocker : IPortBlocker
 	{
 		private const FirewallProfiles All = FirewallProfiles.Public | FirewallProfiles.Domain |
 		                                     FirewallProfiles.Private;
@@ -13,13 +13,13 @@ namespace Core.Network
 		private const string InboundName = "[GTAO] Private Public Lobby - Inbound";
 		private const string OutboundName = "[GTAO] Private Public Lobby - Outbound";
 
-		private readonly IFirewall _firewall;
+		private readonly IFirewall firewallBlocker;
 
 		private readonly Dictionary<Port, PortRules> _rules = new();
 
-		public Firewall()
+		public FirewallPortBlocker()
 		{
-			_firewall = FirewallManager.Instance;
+			firewallBlocker = FirewallManager.Instance;
 		}
 
 		public void Block(Port port)
@@ -35,8 +35,8 @@ namespace Core.Network
 
 				_rules.Add(port, rule);
 
-				_firewall.Rules.Add(rule.Inbound);
-				_firewall.Rules.Add(rule.Outbound);
+				firewallBlocker.Rules.Add(rule.Inbound);
+				firewallBlocker.Rules.Add(rule.Outbound);
 			}
 		}
 
@@ -48,7 +48,7 @@ namespace Core.Network
 
 		private IRule CreatePortRule(in Port port, string name, FirewallDirection direction)
 		{
-			var rule = _firewall.CreatePortRule(
+			var rule = firewallBlocker.CreatePortRule(
 				All, name,
 				FirewallAction.Block, port.Number,
 				FirewallProtocol.UDP);
@@ -68,7 +68,7 @@ namespace Core.Network
 			_rules[port].Enable(false);
 		}
 
-		public void DeleteRules()
+		public void ReleaseAll()
 		{
 			try
 			{
@@ -76,8 +76,8 @@ namespace Core.Network
 				{
 					var (inbound, outbound) = rule;
 
-					_firewall.Rules.Remove(inbound);
-					_firewall.Rules.Remove(outbound);
+					firewallBlocker.Rules.Remove(inbound);
+					firewallBlocker.Rules.Remove(outbound);
 				}
 			}
 			catch (Exception e)

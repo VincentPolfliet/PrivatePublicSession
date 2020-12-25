@@ -16,7 +16,7 @@ namespace UI
 	{
 		private Port _port = (Port)6672;
 
-		private readonly Firewall _firewall = new Firewall();
+		private readonly IPortBlocker portBlocker = IPortBlocker.Firewall();
 		private readonly ITheme _theme = new DarkTheme();
 
 		private HotkeyManager _hotKeys;
@@ -55,14 +55,14 @@ namespace UI
 			{
 				if (!_set)
 				{
-					_firewall.Block(_port);
+					portBlocker.Block(_port);
 
 					_set = true;
 					UpdateActive();
 				}
 				else
 				{
-					_firewall.Unblock(_port);
+					portBlocker.Unblock(_port);
 
 					_set = false;
 					UpdateNotActive();
@@ -102,13 +102,13 @@ namespace UI
 			});
 
 			// delete the rules at startup to have a clean slate
-			_firewall.DeleteRules();
+			portBlocker.ReleaseAll();
 		}
 
 		protected override void OnClosed(EventArgs e)
 		{
 			// delete the rules at closing to not have rules be in the firewall
-			_firewall.DeleteRules();
+			portBlocker.ReleaseAll();
 			base.OnClosed(e);
 		}
 	}
