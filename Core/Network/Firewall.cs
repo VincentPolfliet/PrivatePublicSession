@@ -5,66 +5,85 @@ using WindowsFirewallHelper;
 
 namespace Core.Network
 {
-    public class Firewall
-    {
-        private const string Name = "[GTAO] Private Public Lobby";
+	public class Firewall
+	{
+		private const FirewallProfiles All = FirewallProfiles.Public | FirewallProfiles.Domain |
+		                                     FirewallProfiles.Private;
 
-        private readonly IFirewall _firewall;
+		private const string InboundName = "[GTAO] Private Public Lobby - Inbound";
+		private const string OutboundName = "[GTAO] Private Public Lobby - Outbound";
 
-        private readonly Dictionary<Port, IRule> _rules = new();
+		private readonly IFirewall _firewall;
 
-        public Firewall()
-        {
-            _firewall = FirewallManager.Instance;
-        }
+		private readonly Dictionary<Port, PortRules> _rules = new();
 
-        public void Block(Port port)
-        {
-            // already created these rules? just enable them
-            if (_rules.ContainsKey(port))
-            {
-                _rules[port].IsEnable = true;
-            }
-            else
-            {
-                var rule = CreatePortRule(port);
+		public Firewall()
+		{
+			_firewall = FirewallManager.Instance;
+		}
 
-                _rules.Add(port, rule);
-                _firewall.Rules.Add(rule);
-            }
-        }
+		public void Block(Port port)
+		{
+			// already created these rules? just enable them
+			if (_rules.ContainsKey(port))
+			{
+				_rules[port].Enable(true);
+			}
+			else
+			{
+				var rule = CreatePortRules(port);
 
-        private IRule CreatePortRule(in Port port) =>
-            _firewall.CreatePortRule(FirewallProfiles.Public, Name, FirewallAction.Block, port.Number);
+				_rules.Add(port, rule);
 
-        public void Unblock(Port port)
-        {
-            // check if the rules exist
-            if (!_rules.ContainsKey(port))
-            {
-                // nothing to unblock if the port isn't blocked
-                return;
-            }
+				_firewall.Rules.Add(rule.Inbound);
+				_firewall.Rules.Add(rule.Outbound);
+			}
+		}
 
-            _rules[port].IsEnable = false;
-        }
+		private PortRules CreatePortRules(in Port port) =>
+			new(
+				CreatePortRule(port, InboundName, FirewallDirection.Inbound),
+				CreatePortRule(port, OutboundName, FirewallDirection.Outbound)
+			);
 
-        /// <summary>
-        /// Removes CodeSwine Inbound & Outbound firewall rules at program startup.
-        /// </summary>
-        public void DeleteRules()
-        {
-            try
-            {
-                foreach (var (port, rule) in _rules)
-                {
-                    _firewall.Rules.Remove(rule);
-                }
-            }
-            catch (Exception e)
-            {
-                throw new FirewallException();
-            }
-        }
-    }
+		private IRule CreatePortRule(in Port port, string name, FirewallDirection direction)
+		{
+			var rule = _firewall.CreatePortRule(
+				All, name,
+				FirewallAction.Block, port.Number,
+				FirewallProtocol.UDP);
+			rule.Direction = direction;
+			return rule;
+		}
+
+		public void Unblock(Port port)
+		{
+			// check if the rules exist
+			if (!_rules.ContainsKey(port))
+			{
+				// nothing to unblock if the port isn't blocked
+				return;
+			}
+
+			_rules[port].Enable(false);
+		}
+
+		public void DeleteRules()
+		{
+			try
+			{
+				foreach (var (port, rule) in _rules)
+				{
+					var (inbound, outbound) = rule;
+
+					_firewall.Rules.Remove(inbound);
+					_firewall.Rules.Remove(outbound);
+				}
+			}
+			catch (Exception e)
+			{
+				throw new FirewallException();
+			}
+		}
+	}
 }
