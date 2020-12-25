@@ -25,4 +25,9 @@
       </Resource>
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="NHotkey" Version="2.1.0" />
+      <PackageReference Include="NHotkey.Wpf" Version="2.1.0" />
+    </ItemGroup>
+
 </Project>
