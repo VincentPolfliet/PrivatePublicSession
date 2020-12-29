@@ -1,12 +1,10 @@
 ﻿using System;
-
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Core.Network;
 using NHotkey.Wpf;
-
 using UI.Theme;
 
 namespace UI
@@ -18,10 +16,11 @@ namespace UI
 	{
 		private Port _port = new Port(6672);
 
-		private readonly IPortBlocker portBlocker = IPortBlocker.Firewall();
-		private readonly ITheme _theme = new DarkTheme();
+		private readonly IPortBlocker _portBlocker = IPortBlocker.Firewall();
+		private readonly ThemeLoader _themeLoader = new();
+		private readonly HotkeyManager _hotKeys = HotkeyManager.Current;
 
-		private HotkeyManager _hotKeys = HotkeyManager.Current;
+		private ITheme _theme;
 
 		private bool _rulesActive;
 
@@ -46,6 +45,8 @@ namespace UI
 		{
 			base.OnInitialized(e);
 
+			_theme = _themeLoader.Load();
+
 			// register rules hotkey to CTRL + F10
 			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, args) =>
 			{
@@ -53,7 +54,7 @@ namespace UI
 			});
 
 			// delete the rules at startup to have a clean slate
-			portBlocker.ReleaseAll();
+			_portBlocker.ReleaseAll();
 
 			// set default to false as initial state
 			SetRules(false);
@@ -63,12 +64,9 @@ namespace UI
 			InstructionsLabel.Content = Languages.Instructions;
 		}
 
-		public void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
+		private void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
 
-		private void FlipRules()
-		{
-			RulesActive = !RulesActive;
-		}
+		private void FlipRules() => RulesActive = !RulesActive;
 
 		private void SetRules(bool enabled)
 		{
@@ -76,11 +74,11 @@ namespace UI
 			{
 				if (enabled)
 				{
-					portBlocker.Block(_port);
+					_portBlocker.Block(_port);
 				}
 				else
 				{
-					portBlocker.Unblock(_port);
+					_portBlocker.Unblock(_port);
 				}
 
 				LockLabel.Content = GetLockLabelContent(enabled);
@@ -114,7 +112,7 @@ namespace UI
 		protected override void OnClosed(EventArgs e)
 		{
 			// delete the rules at closing to not have rules be in the firewall
-			portBlocker.ReleaseAll();
+			_portBlocker.ReleaseAll();
 			base.OnClosed(e);
 		}
 	}
