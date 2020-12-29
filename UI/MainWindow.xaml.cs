@@ -1,10 +1,12 @@
 ﻿using System;
+
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Core.Network;
 using NHotkey.Wpf;
+
 using UI.Theme;
 
 namespace UI
@@ -14,59 +16,76 @@ namespace UI
 	/// </summary>
 	public partial class MainWindow : Window
 	{
-		private Port _port = (Port)6672;
+		private Port _port = new Port(6672);
 
 		private readonly IPortBlocker portBlocker = IPortBlocker.Firewall();
 		private readonly ITheme _theme = new DarkTheme();
 
-		private HotkeyManager _hotKeys;
+		private HotkeyManager _hotKeys = HotkeyManager.Current;
 
-		private bool _set = false;
+		private bool _rulesActive;
 
-		public ImageSource LockImageSource { get; set; }
+		private bool RulesActive
+		{
+			get => _rulesActive;
+			set
+			{
+				_rulesActive = value;
+				SetRules(_rulesActive);
+			}
+		}
 
 		public MainWindow()
 		{
 			InitializeComponent();
-			Loaded += MainWindow_Loaded;
+
+			DataContext = this;
 		}
 
-		private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+		protected override void OnInitialized(EventArgs e)
 		{
-			Init();
-		}
+			base.OnInitialized(e);
 
-		void Init()
-		{
+			// register rules hotkey to CTRL + F10
+			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, args) =>
+			{
+				FlipRules();
+			});
+
+			// delete the rules at startup to have a clean slate
+			portBlocker.ReleaseAll();
+
+			// set default to false as initial state
+			SetRules(false);
+
 			Background = _theme.Background.ToBrush();
 
-			// rules are default disabled
-			FirewallButton.Background = _theme.RulesInactive.ToBrush();
+			InstructionsLabel.Content = Languages.Instructions;
 		}
 
-		public void RulesButtonClickHandler(object sender, RoutedEventArgs e)
+		public void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
+
+		private void FlipRules()
 		{
-			SetRules();
+			RulesActive = !RulesActive;
 		}
 
-		private void SetRules()
+		private void SetRules(bool enabled)
 		{
 			try
 			{
-				if (!_set)
+				if (enabled)
 				{
 					portBlocker.Block(_port);
-
-					_set = true;
-					UpdateActive();
 				}
 				else
 				{
 					portBlocker.Unblock(_port);
-
-					_set = false;
-					UpdateNotActive();
 				}
+
+				LockLabel.Content = GetLockLabelContent(enabled);
+				LockImage.Source = GetLockImageSource(enabled);
+				FirewallButton.Background = GetFirewallButtonBackground(enabled).ToBrush();
 			}
 			catch (Exception e)
 			{
@@ -75,35 +94,22 @@ namespace UI
 			}
 		}
 
-		private void UpdateNotActive()
+		private static string GetLockLabelContent(bool enable)
 		{
-			FirewallButton.Background = _theme.RulesInactive.ToBrush();
-			LockImage.Source = new BitmapImage(new Uri("/Assets/unlocked.png", UriKind.Relative));
+			var (rules, action) = enable
+				? (Languages.RulesActive, Languages.DeactivateRules)
+				: (Languages.RulesNotActive, Languages.ActivateRules);
 
-			LockLabel.Content = "Rules not active." + Environment.NewLine + "Click to activate!";
+			return rules + Environment.NewLine + action;
 		}
 
-		private void UpdateActive()
+		private static ImageSource GetLockImageSource(bool enable)
 		{
-			FirewallButton.Background = _theme.RulesActive.ToBrush();
-			LockImage.Source = new BitmapImage(new Uri("/Assets/locked.png", UriKind.Relative));
-			LockLabel.Content = "Rules active." + Environment.NewLine + "Click to deactivate!";
+			var uri = "/Assets/" + (enable ? "locked.png" : "unlocked.png");
+			return new BitmapImage(new Uri(uri, UriKind.Relative));
 		}
 
-		protected override void OnSourceInitialized(EventArgs e)
-		{
-			base.OnSourceInitialized(e);
-
-			_hotKeys = HotkeyManager.Current;
-
-			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, args) =>
-			{
-				SetRules();
-			});
-
-			// delete the rules at startup to have a clean slate
-			portBlocker.ReleaseAll();
-		}
+		private Color GetFirewallButtonBackground(bool enable) => enable ? _theme.RulesActive : _theme.RulesInactive;
 
 		protected override void OnClosed(EventArgs e)
 		{
