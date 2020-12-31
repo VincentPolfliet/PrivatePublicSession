@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -17,14 +20,13 @@ namespace UI
 	/// </summary>
 	public partial class MainWindow : Window
 	{
-		private Port _port = new Port(6672);
-
-
 		private readonly ILogger _logger = LoggerHolder.Logger;
 
 		private readonly IPortBlocker _portBlocker = IPortBlocker.Firewall();
 		private readonly HotkeyManager _hotKeys = HotkeyManager.Current;
 
+		private AppConfig _config;
+		private IEnumerable<Port> _ports;
 		private ITheme _theme;
 
 		private bool _rulesActive;
@@ -50,8 +52,12 @@ namespace UI
 		{
 			base.OnInitialized(args);
 
+			_config = ConfigHolder.Configuration;
+
 			// theme needs to be loaded here so that SetRules and other methods can access it without nullpointer
-			_theme = ConfigHolder.Configuration.Theme;
+			_theme = _config.Theme;
+
+			_ports = GetPorts(_config.Ports);
 
 			Background = _theme.Background.ToBrush();
 			InstructionsLabel.Content = Languages.Instructions;
@@ -62,18 +68,13 @@ namespace UI
 				FlipRules();
 			});
 
-			try
-			{
-				// delete the rules at startup to have a clean slate
-				_portBlocker.ReleaseAll();
-			}
-			catch (Exception e)
-			{
-				_logger.Error(e, "Something went wrong");
-			}
-
 			// set default to false as initial state
 			SetRules(false);
+		}
+
+		private IEnumerable<Port> GetPorts(IEnumerable<ushort> ports)
+		{
+			return ports.Select(n => new Port(n));
 		}
 
 		private void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
@@ -88,7 +89,10 @@ namespace UI
 
 			try
 			{
-				_portBlocker.BlockOrUnblock(_port, enabled);
+				foreach (var port in _ports)
+				{
+					_portBlocker.BlockOrUnblock(port, enabled);
+				}
 			}
 			catch (Exception e)
 			{

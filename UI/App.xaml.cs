@@ -1,7 +1,6 @@
 ﻿using System.Windows;
 using Core.Identity;
 using Core.Logger;
-using Microsoft.Extensions.Configuration;
 using Serilog;
 using UI.Configuration;
 
@@ -17,9 +16,10 @@ namespace UI
 			base.OnStartup(e);
 
 			LoggerHolder.Configuration = BuildLoggerConfig();
-			var config = ConfigHolder.Configuration = new AppConfig(BuildConfig());
 
-			if (!config.CheckForAdminPermissions)
+			var appConfig = ConfigHolder.Configuration = BuildConfig();
+
+			if (!appConfig.CheckForAdminPermissions)
 			{
 				return;
 			}
@@ -36,20 +36,17 @@ namespace UI
 			Current.Shutdown();
 		}
 
+		private AppConfig BuildConfig()
+		{
+			return new ConfigLoader().Load();
+		}
+
 		private static LoggerConfiguration BuildLoggerConfig()
 		{
 			return new LoggerConfiguration()
 				.MinimumLevel.Debug()
 				.WriteTo.File("blocker.log")
 				.WriteTo.Console();
-		}
-
-		private static IConfiguration BuildConfig()
-		{
-			return new ConfigurationBuilder()
-				.AddJsonFile("config.json", optional: false)
-				.AddEnvironmentVariables()
-				.Build();
 		}
 	}
 }

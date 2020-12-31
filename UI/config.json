@@ -4,5 +4,8 @@
     "rules_active": "#39CC8F",
     "rules_notactive": "#D1675A"
   },
+  "ports": [
+    6672
+  ],
   "check_admin": true
 }

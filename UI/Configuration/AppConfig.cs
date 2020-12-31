@@ -1,28 +1,19 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿
+using System.Collections.Generic;
+
+using Core.Network;
+
+using Newtonsoft.Json;
 using UI.Theme;
 
 namespace UI.Configuration
 {
 	public class AppConfig
 	{
-		private readonly IConfiguration _config;
+		[JsonProperty("check_admin")] public bool CheckForAdminPermissions { get; set; }
 
-		public bool CheckForAdminPermissions => _config.GetValue<bool>("check_admin", true);
+		[JsonProperty("theme")] public ConfigTheme Theme { get; set;  }
 
-		public ITheme Theme
-		{
-			get
-			{
-				var theme = _config.GetValue<ConfigTheme>("theme");
-				return theme ?? ITheme.Default;
-			}
-		}
-
-		public AppConfig(IConfiguration config)
-		{
-			_config = config;
-		}
-
-		public string this[string key] => _config[key];
+		[JsonProperty("ports")] public IEnumerable<ushort> Ports { get; set; }
 	}
 }
