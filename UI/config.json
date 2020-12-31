@@ -1,0 +1,8 @@
+﻿{
+  "theme": {
+    "background": "#323232",
+    "rules_active": "#39CC8F",
+    "rules_notactive": "#D1675A"
+  },
+  "check_admin": true
+}

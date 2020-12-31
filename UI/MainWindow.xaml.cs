@@ -3,8 +3,11 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Core.Logger;
 using Core.Network;
 using NHotkey.Wpf;
+using Serilog;
+using UI.Configuration;
 using UI.Theme;
 
 namespace UI
@@ -16,8 +19,10 @@ namespace UI
 	{
 		private Port _port = new Port(6672);
 
+
+		private readonly ILogger _logger = LoggerHolder.Logger;
+
 		private readonly IPortBlocker _portBlocker = IPortBlocker.Firewall();
-		private readonly ThemeLoader _themeLoader = new();
 		private readonly HotkeyManager _hotKeys = HotkeyManager.Current;
 
 		private ITheme _theme;
@@ -41,27 +46,34 @@ namespace UI
 			DataContext = this;
 		}
 
-		protected override void OnInitialized(EventArgs e)
+		protected override void OnInitialized(EventArgs args)
 		{
-			base.OnInitialized(e);
+			base.OnInitialized(args);
 
-			_theme = _themeLoader.Load();
+			// theme needs to be loaded here so that SetRules and other methods can access it without nullpointer
+			_theme = ConfigHolder.Configuration.Theme;
+
+			Background = _theme.Background.ToBrush();
+			InstructionsLabel.Content = Languages.Instructions;
 
 			// register rules hotkey to CTRL + F10
-			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, args) =>
+			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, hotkeyArgs) =>
 			{
 				FlipRules();
 			});
 
-			// delete the rules at startup to have a clean slate
-			_portBlocker.ReleaseAll();
+			try
+			{
+				// delete the rules at startup to have a clean slate
+				_portBlocker.ReleaseAll();
+			}
+			catch (Exception e)
+			{
+				_logger.Error(e, "Something went wrong");
+			}
 
 			// set default to false as initial state
 			SetRules(false);
-
-			Background = _theme.Background.ToBrush();
-
-			InstructionsLabel.Content = Languages.Instructions;
 		}
 
 		private void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
@@ -70,25 +82,17 @@ namespace UI
 
 		private void SetRules(bool enabled)
 		{
+			LockLabel.Content = GetLockLabelContent(enabled);
+			LockImage.Source = GetLockImageSource(enabled);
+			FirewallButton.Background = GetFirewallButtonBackground(enabled).ToBrush();
+
 			try
 			{
-				if (enabled)
-				{
-					_portBlocker.Block(_port);
-				}
-				else
-				{
-					_portBlocker.Unblock(_port);
-				}
-
-				LockLabel.Content = GetLockLabelContent(enabled);
-				LockImage.Source = GetLockImageSource(enabled);
-				FirewallButton.Background = GetFirewallButtonBackground(enabled).ToBrush();
+				_portBlocker.BlockOrUnblock(_port, enabled);
 			}
 			catch (Exception e)
 			{
-				AdminLabel.Visibility = Visibility.Visible;
-				Console.Write(e);
+				_logger.Error(e, "Something went wrong with blocking the port");
 			}
 		}
 

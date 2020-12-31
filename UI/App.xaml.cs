@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
+using Core.Identity;
 using Core.Logger;
+using Microsoft.Extensions.Configuration;
 using Serilog;
+using UI.Configuration;
 
 namespace UI
 {
@@ -19,10 +16,40 @@ namespace UI
 		{
 			base.OnStartup(e);
 
-			LoggerHolder.Configuration = new LoggerConfiguration()
+			LoggerHolder.Configuration = BuildLoggerConfig();
+			var config = ConfigHolder.Configuration = new AppConfig(BuildConfig());
+
+			if (!config.CheckForAdminPermissions)
+			{
+				return;
+			}
+
+			if (IdentityHelper.IsRunAsAdmin())
+			{
+				return;
+			}
+
+			var logger = LoggerHolder.Logger;
+			logger.Fatal("program is not run as administrator");
+
+			new RunAsAdminAlert().Open();
+			Current.Shutdown();
+		}
+
+		private static LoggerConfiguration BuildLoggerConfig()
+		{
+			return new LoggerConfiguration()
 				.MinimumLevel.Debug()
-				.WriteTo.File("logs\\portlblocker.log", rollingInterval: RollingInterval.Day)
+				.WriteTo.File("blocker.log")
 				.WriteTo.Console();
+		}
+
+		private static IConfiguration BuildConfig()
+		{
+			return new ConfigurationBuilder()
+				.AddJsonFile("config.json", optional: false)
+				.AddEnvironmentVariables()
+				.Build();
 		}
 	}
 }
