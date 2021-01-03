@@ -4,6 +4,15 @@
         <OutputType>WinExe</OutputType>
         <TargetFramework>net5.0-windows</TargetFramework>
         <UseWPF>true</UseWPF>
+        <PackageId>PrivatePublicSession</PackageId>
+        <Authors>Vincent Polfliet</Authors>
+        <Product>PrivatePublicSession</Product>
+        <AssemblyName>PrivatePublicSession</AssemblyName>
+        <StartupObject>UI.App</StartupObject>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+      <Optimize>false</Optimize>
     </PropertyGroup>
 
     <ItemGroup>

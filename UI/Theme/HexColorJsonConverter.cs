@@ -11,8 +11,8 @@ namespace UI.Theme
 		public override Color? ReadJson(JsonReader reader, Type objectType, Color? existingValue, bool hasExistingValue,
 			JsonSerializer serializer)
 		{
-			var obj = serializer.Deserialize(reader, typeof(string));
-			return HexColor.Parse(obj as string);
+			var obj = serializer.Deserialize<string>(reader);
+			return HexColor.Parse(obj);
 		}
 
 		public override bool CanRead => true;

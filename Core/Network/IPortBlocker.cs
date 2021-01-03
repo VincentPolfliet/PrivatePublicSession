@@ -1,4 +1,6 @@
-﻿namespace Core.Network
+﻿using System.Collections.Generic;
+
+namespace Core.Network
 {
 	public interface IPortBlocker
 	{

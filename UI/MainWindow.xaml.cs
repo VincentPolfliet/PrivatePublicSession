@@ -12,6 +12,7 @@ using NHotkey.Wpf;
 using Serilog;
 using UI.Configuration;
 using UI.Theme;
+using UI.Utils;
 
 namespace UI
 {
@@ -89,10 +90,7 @@ namespace UI
 
 			try
 			{
-				foreach (var port in _ports)
-				{
-					_portBlocker.BlockOrUnblock(port, enabled);
-				}
+				_portBlocker.BlockOrUnblockAll(_ports, enabled);
 			}
 			catch (Exception e)
 			{
