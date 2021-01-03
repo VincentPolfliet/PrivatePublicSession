@@ -1,13 +1,18 @@
 ﻿using System;
-
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Core.Logger;
 using Core.Network;
 using NHotkey.Wpf;
-
+using Serilog;
+using UI.Configuration;
 using UI.Theme;
+using UI.Utils;
 
 namespace UI
 {
@@ -16,12 +21,14 @@ namespace UI
 	/// </summary>
 	public partial class MainWindow : Window
 	{
-		private Port _port = new Port(6672);
+		private readonly ILogger _logger = LoggerHolder.Logger;
 
-		private readonly IPortBlocker portBlocker = IPortBlocker.Firewall();
-		private readonly ITheme _theme = new DarkTheme();
+		private readonly IPortBlocker _portBlocker = IPortBlocker.Firewall();
+		private readonly HotkeyManager _hotKeys = HotkeyManager.Current;
 
-		private HotkeyManager _hotKeys = HotkeyManager.Current;
+		private AppConfig _config;
+		private IEnumerable<Port> _ports;
+		private ITheme _theme;
 
 		private bool _rulesActive;
 
@@ -42,55 +49,52 @@ namespace UI
 			DataContext = this;
 		}
 
-		protected override void OnInitialized(EventArgs e)
+		protected override void OnInitialized(EventArgs args)
 		{
-			base.OnInitialized(e);
+			base.OnInitialized(args);
+
+			_config = ConfigHolder.Configuration;
+
+			// theme needs to be loaded here so that SetRules and other methods can access it without nullpointer
+			_theme = _config.Theme;
+
+			_ports = GetPorts(_config.Ports);
+
+			Background = _theme.Background.ToBrush();
+			InstructionsLabel.Content = Languages.Instructions;
 
 			// register rules hotkey to CTRL + F10
-			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, args) =>
+			_hotKeys.AddOrReplace("rules", Key.F10, ModifierKeys.Control, (sender, hotkeyArgs) =>
 			{
 				FlipRules();
 			});
 
-			// delete the rules at startup to have a clean slate
-			portBlocker.ReleaseAll();
-
 			// set default to false as initial state
 			SetRules(false);
-
-			Background = _theme.Background.ToBrush();
-
-			InstructionsLabel.Content = Languages.Instructions;
 		}
 
-		public void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
-
-		private void FlipRules()
+		private IEnumerable<Port> GetPorts(IEnumerable<ushort> ports)
 		{
-			RulesActive = !RulesActive;
+			return ports.Select(n => new Port(n));
 		}
+
+		private void RulesButtonClickHandler(object sender, RoutedEventArgs e) => FlipRules();
+
+		private void FlipRules() => RulesActive = !RulesActive;
 
 		private void SetRules(bool enabled)
 		{
+			LockLabel.Content = GetLockLabelContent(enabled);
+			LockImage.Source = GetLockImageSource(enabled);
+			FirewallButton.Background = GetFirewallButtonBackground(enabled).ToBrush();
+
 			try
 			{
-				if (enabled)
-				{
-					portBlocker.Block(_port);
-				}
-				else
-				{
-					portBlocker.Unblock(_port);
-				}
-
-				LockLabel.Content = GetLockLabelContent(enabled);
-				LockImage.Source = GetLockImageSource(enabled);
-				FirewallButton.Background = GetFirewallButtonBackground(enabled).ToBrush();
+				_portBlocker.BlockOrUnblockAll(_ports, enabled);
 			}
 			catch (Exception e)
 			{
-				AdminLabel.Visibility = Visibility.Visible;
-				Console.Write(e);
+				_logger.Error(e, "Something went wrong with blocking the port");
 			}
 		}
 
@@ -114,7 +118,7 @@ namespace UI
 		protected override void OnClosed(EventArgs e)
 		{
 			// delete the rules at closing to not have rules be in the firewall
-			portBlocker.ReleaseAll();
+			_portBlocker.ReleaseAll();
 			base.OnClosed(e);
 		}
 	}

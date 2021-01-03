@@ -5,6 +5,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Serilog" Version="2.10.0" />
+      <PackageReference Include="System.Security.Principal.Windows" Version="4.7.0" />
       <PackageReference Include="WindowsFirewallHelper" Version="1.6.3.40" />
     </ItemGroup>
 

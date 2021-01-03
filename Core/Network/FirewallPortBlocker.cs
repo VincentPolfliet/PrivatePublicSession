@@ -1,12 +1,16 @@
-﻿using System;
+﻿
 using System.Collections.Generic;
 using WindowsFirewallHelper;
+using Core.Logger;
+using Serilog;
 
 
 namespace Core.Network
 {
 	public class FirewallPortBlocker : IPortBlocker
 	{
+		private ILogger _logger = LoggerHolder.Logger;
+
 		private const FirewallProfiles All = FirewallProfiles.Public | FirewallProfiles.Domain |
 		                                     FirewallProfiles.Private;
 
@@ -24,6 +28,8 @@ namespace Core.Network
 
 		public void Block(Port port)
 		{
+			_logger.Information("blocking port: {port}", port.Number);
+
 			// already created these rules? just enable them
 			if (_rules.ContainsKey(port))
 			{
@@ -70,19 +76,12 @@ namespace Core.Network
 
 		public void ReleaseAll()
 		{
-			try
+			foreach (var (port, rule) in _rules)
 			{
-				foreach (var (port, rule) in _rules)
-				{
-					var (inbound, outbound) = rule;
+				var (inbound, outbound) = rule;
 
-					firewallBlocker.Rules.Remove(inbound);
-					firewallBlocker.Rules.Remove(outbound);
-				}
-			}
-			catch (Exception e)
-			{
-				throw new FirewallException();
+				firewallBlocker.Rules.Remove(inbound);
+				firewallBlocker.Rules.Remove(outbound);
 			}
 		}
 	}
