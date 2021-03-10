@@ -45,7 +45,6 @@ namespace UI
 		{
 			return new LoggerConfiguration()
 				.MinimumLevel.Debug()
-				.WriteTo.File("blocker.log")
 				.WriteTo.Console();
 		}
 	}
