@@ -20,12 +20,26 @@ namespace Core.Network
 
 		public void Unblock(Port port)
 		{
-			_logger.Information("UNblocking port: {port}", port.Number);
+			_logger.Information("Unblocking port: {port}", port.Number);
 
 			_ports[port] = false;
 		}
 
-		public void ReleaseAll()
+		public BlockedPortStatus IsBlocked(Port port)
+		{
+			var blocked = _ports.ContainsKey(port) && _ports[port];
+			return new BlockedPortStatus {InboundBlocked = blocked, OutboundBlocked = blocked};
+		}
+
+		public void ReleasePort(Port port)
+		{
+			if (_ports.ContainsKey(port))
+			{
+				_ports.Remove(port);
+			}
+		}
+
+		public void ReleasePort()
 		{
 			foreach (var key in _ports.Keys.ToList())
 			{

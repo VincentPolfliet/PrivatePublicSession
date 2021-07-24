@@ -1,33 +1,15 @@
 ﻿using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
 using static Serilog.Core.Logger;
 
 namespace Core.Logger
 {
 	public static class LoggerHolder
 	{
-		private static ILogger logger = None;
-
-		public static LoggerConfiguration Configuration { get; set; }
-
-		public static ILogger Logger
-		{
-			get
-			{
-				if (logger == None)
-				{
-					ConfigureLogger();
-				}
-
-				return logger;
-			}
-		}
-
-		private static void ConfigureLogger()
-		{
-			if (Configuration != null)
-			{
-				logger = Configuration.CreateLogger();
-			}
-		}
+		public static ILogger Logger { get; } =
+			new LoggerConfiguration()
+				.MinimumLevel.Debug()
+				.WriteTo.Console()
+				.CreateLogger();
 	}
 }

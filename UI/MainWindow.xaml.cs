@@ -70,7 +70,23 @@ namespace UI
 			});
 
 			// set default to false as initial state
-			SetRules(false);
+			SetRulesBasedOnPortBlockedAmount();
+		}
+
+		private void SetRulesBasedOnPortBlockedAmount()
+		{
+			var allBlocked = true;
+
+			foreach (var port in _ports)
+			{
+				var status = _portBlocker.IsBlocked(port);
+				_logger.Information("{Port} inbound blocked: {Status}", port.Number, status.InboundBlocked);
+				_logger.Information("{Port} outbound blocked: {Status}", port.Number, status.OutboundBlocked);
+
+				allBlocked &= status.AllBlocked;
+			}
+
+			SetRules(allBlocked);
 		}
 
 		private IEnumerable<Port> GetPorts(IEnumerable<ushort> ports)
@@ -117,8 +133,14 @@ namespace UI
 
 		protected override void OnClosed(EventArgs e)
 		{
-			// delete the rules at closing to not have rules be in the firewall
-			_portBlocker.ReleaseAll();
+			if (_config.DeletePortRulesOnExit)
+			{
+				foreach (var port in _ports)
+				{
+					_portBlocker.ReleasePort(port);
+				}
+			}
+
 			base.OnClosed(e);
 		}
 	}

@@ -10,6 +10,7 @@ namespace UI.Configuration
 {
 	public class AppConfig
 	{
+		[JsonProperty("delete_on_exit")] public bool DeletePortRulesOnExit { get; set; }
 		[JsonProperty("check_admin")] public bool CheckForAdminPermissions { get; set; }
 
 		[JsonProperty("theme")] public ConfigTheme Theme { get; set;  }

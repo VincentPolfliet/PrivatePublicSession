@@ -7,5 +7,6 @@
   "ports": [
     6672
   ],
+  "delete_on_exit": false,
   "check_admin": true
 }

@@ -7,7 +7,9 @@ namespace Core.Network
 		void Block(Port port);
 		void Unblock(Port port);
 
-		void ReleaseAll();
+		BlockedPortStatus IsBlocked(Port port);
+
+		void ReleasePort(Port port);
 
 		public static IPortBlocker Firewall() => new FirewallPortBlocker();
 

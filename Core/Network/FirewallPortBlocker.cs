@@ -1,60 +1,76 @@
-﻿
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using WindowsFirewallHelper;
-using Core.Logger;
-using Serilog;
-
 
 namespace Core.Network
 {
 	public class FirewallPortBlocker : IPortBlocker
 	{
-		private ILogger _logger = LoggerHolder.Logger;
-
 		private const FirewallProfiles All = FirewallProfiles.Public | FirewallProfiles.Domain |
 		                                     FirewallProfiles.Private;
 
-		private const string InboundName = "[GTAO] Private Public Lobby - Inbound";
-		private const string OutboundName = "[GTAO] Private Public Lobby - Outbound";
+		private const string Name = "[GTAO] Private Public Lobby - ";
 
-		private readonly IFirewall firewallBlocker;
-
-		private readonly Dictionary<Port, PortRules> _rules = new();
+		private readonly IFirewall firewall;
 
 		public FirewallPortBlocker()
 		{
-			firewallBlocker = FirewallManager.Instance;
+			firewall = FirewallManager.Instance;
 		}
 
 		public void Block(Port port)
 		{
-			_logger.Information("blocking port: {port}", port.Number);
+			Block(port, FirewallDirection.Inbound);
+			Block(port, FirewallDirection.Outbound);
+		}
 
-			// already created these rules? just enable them
-			if (_rules.ContainsKey(port))
+		private void Block(Port port, FirewallDirection direction)
+		{
+			var rule = GetRuleFromFireWall(port, direction);
+
+			// does the rule already exists from a previous blocking?
+			if (rule != null)
 			{
-				_rules[port].Enable(true);
+				// if so than just enable it again
+				rule.IsEnable = true;
 			}
 			else
 			{
-				var rule = CreatePortRules(port);
-
-				_rules.Add(port, rule);
-
-				firewallBlocker.Rules.Add(rule.Inbound);
-				firewallBlocker.Rules.Add(rule.Outbound);
+				// if not, create it and add it to the firewall
+				var newRule = CreatePortRule(port, Name + direction, direction);
+				firewall.Rules.Add(newRule);
 			}
 		}
 
-		private PortRules CreatePortRules(in Port port) =>
-			new(
-				CreatePortRule(port, InboundName, FirewallDirection.Inbound),
-				CreatePortRule(port, OutboundName, FirewallDirection.Outbound)
-			);
+		public BlockedPortStatus IsBlocked(Port port)
+		{
+			return new BlockedPortStatus()
+			{
+				InboundBlocked = IsBlockedAndEnabled(port, FirewallDirection.Inbound),
+				OutboundBlocked = IsBlockedAndEnabled(port, FirewallDirection.Outbound)
+			};
+		}
+
+		private bool IsBlockedAndEnabled(Port port, FirewallDirection direction)
+		{
+			var rule = GetRuleFromFireWall(port, direction);
+
+			if (rule == null)
+			{
+				return false;
+			}
+
+			return rule.IsBlocked() && rule.IsEnable;
+		}
+
+		private IRule? GetRuleFromFireWall(Port port, FirewallDirection direction)
+		{
+			return firewall.Rules.FirstOrDefault(r => r.IsForPort(port) && r.IsDirection(direction));
+		}
 
 		private IRule CreatePortRule(in Port port, string name, FirewallDirection direction)
 		{
-			var rule = firewallBlocker.CreatePortRule(
+			var rule = firewall.CreatePortRule(
 				All, name,
 				FirewallAction.Block, port.Number,
 				FirewallProtocol.UDP);
@@ -64,24 +80,33 @@ namespace Core.Network
 
 		public void Unblock(Port port)
 		{
-			// check if the rules exist
-			if (!_rules.ContainsKey(port))
+			var inboundRule = GetRuleFromFireWall(port, FirewallDirection.Inbound);
+
+			if (inboundRule is {IsEnable: true})
 			{
-				// nothing to unblock if the port isn't blocked
-				return;
+				inboundRule.IsEnable = false;
 			}
 
-			_rules[port].Enable(false);
+			var outboundRule = GetRuleFromFireWall(port, FirewallDirection.Outbound);
+			if (outboundRule is {IsEnable: true})
+			{
+				outboundRule.IsEnable = false;
+			}
 		}
 
-		public void ReleaseAll()
+		public void ReleasePort(Port port)
 		{
-			foreach (var (port, rule) in _rules)
-			{
-				var (inbound, outbound) = rule;
+			var inboundRule = GetRuleFromFireWall(port, FirewallDirection.Inbound);
+			var outboundRule = GetRuleFromFireWall(port, FirewallDirection.Outbound);
 
-				firewallBlocker.Rules.Remove(inbound);
-				firewallBlocker.Rules.Remove(outbound);
+			if (inboundRule is not null)
+			{
+				firewall.Rules.Remove(inboundRule);
+			}
+
+			if (outboundRule is not null)
+			{
+				firewall.Rules.Remove(outboundRule);
 			}
 		}
 	}
