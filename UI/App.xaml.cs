@@ -1,7 +1,7 @@
-﻿using System.Windows;
+﻿using System.Runtime.InteropServices;
+using System.Windows;
 using Core.Identity;
 using Core.Logger;
-using Serilog;
 using UI.Configuration;
 
 namespace UI
@@ -11,11 +11,17 @@ namespace UI
 	/// </summary>
 	public partial class App : Application
 	{
+		private const int AttachParentProcess = -1;
+
+		[DllImport("kernel32.dll")]
+		private static extern bool AttachConsole(int dwProcessId);
 		protected override void OnStartup(StartupEventArgs e)
 		{
 			base.OnStartup(e);
 
-			LoggerHolder.Configuration = BuildLoggerConfig();
+			// SeriLog doesn't print to console in the latest Rider version (24/7/2021)
+			// https://youtrack.jetbrains.com/issue/RIDER-15637#focus=Comments-27-4857606.0-0
+			AttachToParentConsole();
 
 			var appConfig = ConfigHolder.Configuration = BuildConfig();
 
@@ -41,11 +47,15 @@ namespace UI
 			return new ConfigLoader().Load();
 		}
 
-		private static LoggerConfiguration BuildLoggerConfig()
+		/// <summary>
+		///     Redirects the console output of the current process to the parent process.
+		/// </summary>
+		/// <remarks>
+		///     Must be called before calls to <see cref="Console.WriteLine()" />.
+		/// </remarks>
+		private static void AttachToParentConsole()
 		{
-			return new LoggerConfiguration()
-				.MinimumLevel.Debug()
-				.WriteTo.Console();
+			AttachConsole(AttachParentProcess);
 		}
 	}
 }
